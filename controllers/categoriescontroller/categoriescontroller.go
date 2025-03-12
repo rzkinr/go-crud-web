@@ -1,106 +1,156 @@
 package categoriescontroller
 
 import (
+	"encoding/json"
+	"fmt"
 	"go-web-native/entities"
+	"go-web-native/middleware"
 	"go-web-native/models/categorymodel"
+	"io"
 	"net/http"
+	"regexp"
 	"strconv"
-	"text/template"
+	"strings"
 	"time"
 )
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	categories := categorymodel.GetAll()
-	data := map[string]any{
-		"categories": categories,
-	}
+	middleware.EnableCors(&w)
+	middleware.Re(w)
+	authorizationHeader := r.Header.Get("Authorization")
 
-	temp, err := template.ParseFiles("views/category/index.html")
+	tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+	// fmt.Println("string token", tokenString, authorizationHeader)
+	err := middleware.VerifyToken(tokenString)
 	if err != nil {
-		panic(err)
+		w.Write([]byte("Invalid token"))
+		return
 	}
 
-	temp.Execute(w, data)
+	categories := categorymodel.GetAll()
+	w.Header().Set("Content-Type", "application/json")
+	payload, _ := json.Marshal(categories)
+	w.Write(payload)
 }
 
 func Add(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		temp, err := template.ParseFiles("views/category/create.html")
-		if err != nil {
-			panic(err)
-		}
+	middleware.EnableCors(&w)
+	middleware.Re(w)
+	authorizationHeader := r.Header.Get("Authorization")
 
-		temp.Execute(w, nil)
+	tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+	// fmt.Println("string token", tokenString, authorizationHeader)
+	err := middleware.VerifyToken(tokenString)
+	if err != nil {
+		w.Write([]byte("Invalid token"))
+		return
 	}
 
-	if r.Method == "POST" {
-		var category entities.Category
-		category.Name = r.FormValue("name")
-		category.CreatedAt = time.Now()
-		category.UpdatedAt = time.Now()
+	w.Header().Set("Content-Type", "application/json")
+	var category entities.Category
+	defer r.Body.Close()
+	request, _ := io.ReadAll(r.Body)
+	// fmt.Println(request)
+	json.Unmarshal(request, &category)
+	// fmt.Println(category)
+	category.CreatedAt = time.Now()
+	category.UpdatedAt = time.Now()
 
-		if ok := categorymodel.Create(category); !ok {
-			temp, _ := template.ParseFiles("views/category/create.html")
-			temp.Execute(w, nil)
-		}
-		http.Redirect(w, r, "/categories", http.StatusSeeOther)
+	if ok := categorymodel.Create(category); !ok {
+		fmt.Println(ok)
+	}
+	// fmt.Println(category.Name)
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Data created"))
+
+}
+
+func Detil(w http.ResponseWriter, r *http.Request) {
+	middleware.EnableCors(&w)
+	middleware.Re(w)
+	authorizationHeader := r.Header.Get("Authorization")
+
+	tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+	err := middleware.VerifyToken(tokenString)
+	if err != nil {
+		w.Write([]byte("Invalid token"))
+		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	// var categories entities.Category
+
+	input := r.URL.String()
+	// Metode 1: Menggunakan regular expression
+	re := regexp.MustCompile(`\d+`)
+	numbers := re.FindAllString(input, -1)
+	// fmt.Println("Hasil dengan regexp:", strings.Join(numbers, ""))
+	idString := strings.Join(numbers, "")
+	id, _ := strconv.Atoi(idString)
+	// fmt.Println(id)
+
+	category := categorymodel.Detil(int(id))
+	payload, _ := json.Marshal(category)
+	w.Write(payload)
 }
 
 func Edit(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		temp, err := template.ParseFiles("views/category/edit.html")
-		if err != nil {
-			panic(err)
-		}
+	middleware.EnableCors(&w)
+	middleware.Re(w)
+	authorizationHeader := r.Header.Get("Authorization")
 
-		idString := r.URL.Query().Get("id")
-		id, err := strconv.Atoi(idString)
-		if err != nil {
-			panic(err)
-		}
-
-		category := categorymodel.Detil(id)
-		data := map[string]any{
-			"category": category,
-		}
-
-		temp.Execute(w, data)
+	tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+	// fmt.Println("string token", tokenString, authorizationHeader)
+	err := middleware.VerifyToken(tokenString)
+	if err != nil {
+		w.Write([]byte("Invalid token"))
+		return
 	}
 
-	if r.Method == "POST" {
-		var category entities.Category
-		idString := r.FormValue("id")
-		id, err := strconv.Atoi(idString)
-		if err != nil {
-			panic(err)
-		}
+	w.Header().Set("Content-Type", "application/json")
+	var category entities.Category
 
-		category.Name = r.FormValue("name")
-		category.UpdatedAt = time.Now()
+	defer r.Body.Close()
+	request, _ := io.ReadAll(r.Body)
+	json.Unmarshal(request, &category)
+	category.UpdatedAt = time.Now()
+	id, _ := strconv.Atoi(category.Id)
 
-		if ok := categorymodel.Update(id, category); !ok {
-			http.Redirect(w, r, r.Header.Get("Referer"), http.StatusSeeOther)
-			return
-		}
-
-		http.Redirect(w, r, "/categories", http.StatusSeeOther)
-
+	if ok := categorymodel.Update(int(id), category); !ok {
+		fmt.Println(ok)
 	}
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Data created"))
 }
 
 func Delete(w http.ResponseWriter, r *http.Request) {
-	idString := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idString)
+	middleware.EnableCors(&w)
+	middleware.Re(w)
+	authorizationHeader := r.Header.Get("Authorization")
+
+	tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+	err := middleware.VerifyToken(tokenString)
 	if err != nil {
-		panic(err)
+		w.Write([]byte("Invalid token"))
+		return
 	}
 
-	if err := categorymodel.Delete(id); err != nil {
-		panic(err)
+	w.Header().Set("Content-Type", "application/json")
+	var category entities.Category
+	defer r.Body.Close()
+	request, _ := io.ReadAll(r.Body)
+	json.Unmarshal(request, &category)
+	category.UpdatedAt = time.Now()
+	id, _ := strconv.Atoi(category.Id)
+	fmt.Println(id)
+
+	if ok := categorymodel.Delete(id); ok != nil {
+		fmt.Println(ok)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Failed to delete data"))
+		return
 	}
 
-	http.Redirect(w, r, "/categories", http.StatusSeeOther)
-
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Data deleted"))
 }

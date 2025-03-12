@@ -3,7 +3,7 @@ package main
 import (
 	"go-web-native/config"
 	"go-web-native/controllers/categoriescontroller"
-	"go-web-native/controllers/homecontroller"
+	"go-web-native/controllers/logincontroller"
 	"log"
 	"net/http"
 )
@@ -11,12 +11,12 @@ import (
 func main() {
 	config.ConnectedDB()
 
-	// 1. Homepage
-	http.HandleFunc("/", homecontroller.Welcome)
+	http.HandleFunc("/login", logincontroller.HandlerLogin)
 
 	// 2. Categories
 	http.HandleFunc("/categories", categoriescontroller.Index)
 	http.HandleFunc("/categories/add", categoriescontroller.Add)
+	http.HandleFunc("/categories/detil/", categoriescontroller.Detil)
 	http.HandleFunc("/categories/edit", categoriescontroller.Edit)
 	http.HandleFunc("/categories/delete", categoriescontroller.Delete)
 
